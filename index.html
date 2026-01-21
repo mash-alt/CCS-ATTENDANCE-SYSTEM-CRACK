@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Data Viewer - Attendance System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Login Container -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-box">
+            <h1>🔥 Firebase Data Viewer</h1>
+            <p class="subtitle">Attendance System Database</p>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="ucIdInput">UC ID</label>
+                    <input type="text" id="ucIdInput" placeholder="Enter your UC ID" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="passwordInput">Password</label>
+                    <input type="password" id="passwordInput" placeholder="Enter your password" required>
+                </div>
+                
+                <button type="submit" class="login-btn">Login</button>
+                
+                <div id="loginError" class="login-error"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Container (Hidden until login) -->
+    <div id="mainContainer" class="container" style="display: none;">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>🔥 Firebase Data Viewer</h1>
+                    <p>Attendance System Database</p>
+                </div>
+                <div class="user-info-container">
+                    <div id="userInfo" class="user-info"></div>
+                    <button id="logoutBtn" class="logout-btn">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="status" id="status">
+            <span class="loading">Connecting to Firebase...</span>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="navigation-links" id="navigationLinks" style="display: none;">
+            <a href="attendance.html" class="nav-link">📋 Attendance Management</a>
+            <a href="admin-panel.html" class="nav-link" id="adminPanelLink" style="display: none;">👥 User Management</a>
+            <a href="create-account.html" class="nav-link" id="createAccountLink" style="display: none;">➕ Create Account</a>
+        </div>
+
+        <div class="controls">
+            <label for="collectionSelect">Select Collection:</label>
+            <select id="collectionSelect">
+                <option value="">-- Choose a collection --</option>
+            </select>
+            <button id="refreshBtn">🔄 Refresh Data</button>
+        </div>
+
+        <div class="data-container">
+            <div id="dataDisplay">
+                <p class="info">Select a collection to view data</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

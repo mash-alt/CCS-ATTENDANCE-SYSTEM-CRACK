@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Management - Attendance System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div>
+            <div class="spinner"></div>
+            <div style="margin-top: 20px;">Loading Attendance...</div>
+        </div>
+    </div>
+
+    <!-- Main Attendance Container -->
+    <div id="attendanceContainer" style="display: none;">
+        <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 20px;">
+            <header style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h1 style="color: #333; margin-bottom: 5px;">📋 Attendance Management</h1>
+                        <p style="color: #666; margin: 0;">View and Create Attendance Records</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <a href="index.html" class="btn-secondary" style="text-decoration: none;">🏠 Home</a>
+                        <div id="userBadge" class="user-badge"></div>
+                        <button id="logoutBtn" class="logout-btn">Logout</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- View Attendance -->
+            <div id="viewTab" class="tab-content active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Records</div>
+                        <div class="stat-value" id="totalRecords">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Today's Attendance</div>
+                        <div class="stat-value" id="todayRecords">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Present Today</div>
+                        <div class="stat-value" id="presentToday">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">This Week</div>
+                        <div class="stat-value" id="weekRecords">0</div>
+                    </div>
+                </div>
+
+                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 20px 0;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                        <input type="text" id="searchUcId" placeholder="Search by UC ID or Full Name..." style="flex: 1; min-width: 200px; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em;">
+                        <input type="date" id="dateFilter" style="padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em;">
+                        <select id="statusFilter" style="padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; cursor: pointer;">
+                            <option value="">All Status</option>
+                            <option value="valid">Valid</option>
+                            <option value="invalid">Invalid</option>
+                        </select>
+                        <button id="filterBtn" class="btn-secondary">🔍 Filter</button>
+                        <button id="clearFilterBtn" class="btn-secondary">Clear</button>
+                        <button id="refreshAttendanceBtn" class="btn-primary">🔄 Refresh</button>
+                        <button id="openCreateModalBtn" class="btn-primary" style="background: #28a745;">➕ Create Attendance</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="attendanceTable">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>UC ID</th>
+                                <th>Full Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Scanned At</th>
+                                <th>Location</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTableBody">
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 40px;">
+                                    <div class="loading">Loading attendance records...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Create Attendance Modal -->
+    <div id="createAttendanceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Attendance Record</h2>
+                <span class="close" id="closeCreateModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="createAttendanceForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="studentSelect">Student *</label>
+                            <select id="studentSelect" required>
+                                <option value="">-- Select Student --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="attendanceDate">Date *</label>
+                            <input type="date" id="attendanceDate" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="attendanceType">Type *</label>
+                            <select id="attendanceType" required>
+                                <option value="IN">🔵 IN (Check-in)</option>
+                                <option value="OUT">🔴 OUT (Check-out)</option>
+                            </select>
+                            <small id="typeHint" style="color: #666; display: block; margin-top: 5px;"></small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="attendanceStatus">Status *</label>
+                            <select id="attendanceStatus" required>
+                                <option value="valid">✅ Valid</option>
+                                <option value="invalid">❌ Invalid</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="locationLat">Latitude</label>
+                            <input type="number" step="any" id="locationLat" placeholder="e.g., 10.338586">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="locationLng">Longitude</label>
+                            <input type="number" step="any" id="locationLng" placeholder="e.g., 123.9120323">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="locationAccuracy">Accuracy (meters)</label>
+                            <input type="number" step="any" id="locationAccuracy" placeholder="e.g., 11.25">
+                        </div>
+
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label for="notes">Notes</label>
+                            <textarea id="notes" rows="3" placeholder="Additional notes or remarks..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Create Attendance Record</button>
+                        <button type="reset" class="btn-secondary">Clear Form</button>
+                    </div>
+
+                    <div id="formMessage" class="form-message"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Attendance Modal -->
+    <div id="editAttendanceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Attendance Record</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="editAttendanceForm">
+                <input type="hidden" id="editAttendanceId">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Student</label>
+                        <input type="text" id="editStudentInfo" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editAttendanceDate">Date *</label>
+                        <input type="date" id="editAttendanceDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editAttendanceType">Type *</label>
+                        <select id="editAttendanceType" required>
+                            <option value="IN">🔵 IN (Check-in)</option>
+                            <option value="OUT">🔴 OUT (Check-out)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editAttendanceStatus">Status *</label>
+                        <select id="editAttendanceStatus" required>
+                            <option value="valid">✅ Valid</option>
+                            <option value="invalid">❌ Invalid</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editLocationLat">Latitude</label>
+                        <input type="number" step="any" id="editLocationLat">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editLocationLng">Longitude</label>
+                        <input type="number" step="any" id="editLocationLng">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editLocationAccuracy">Accuracy (meters)</label>
+                        <input type="number" step="any" id="editLocationAccuracy">
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">Update Attendance</button>
+                    <button type="button" class="btn-secondary close-modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Import configuration
+        import { firebaseConfig, SECRET_KEY } from './config.js';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let allAttendance = [];
+        let allStudents = [];
+
+        // Hash password
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password + SECRET_KEY);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hash))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+        // Auto-login check
+        async function checkAuth() {
+            const userStr = localStorage.getItem('attendance_user');
+            const token = localStorage.getItem('attendance_token');
+
+            if (!userStr || !token) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                currentUser = JSON.parse(userStr);
+                
+                // Verify user still exists and is active
+                await signInAnonymously(auth);
+                const userQuery = query(collection(db, 'users'), where('ucId', '==', currentUser.ucId));
+                const snapshot = await getDocs(userQuery);
+                
+                if (snapshot.empty) {
+                    localStorage.clear();
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                const userData = snapshot.docs[0].data();
+                if (!userData.isActive) {
+                    alert('Your account has been deactivated.');
+                    localStorage.clear();
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                // Check if user has permission (admin or moderator)
+                if (currentUser.role !== 'admin' && currentUser.role !== 'moderator') {
+                    alert('You do not have permission to access this page.');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('attendanceContainer').style.display = 'block';
+                
+                document.getElementById('userBadge').innerHTML = `
+                    <span>${currentUser.firstName} ${currentUser.lastName}</span>
+                    <span class="role-badge ${currentUser.role}">${currentUser.role.toUpperCase()}</span>
+                `;
+
+                await loadStudents();
+                await loadAllAttendance();
+
+            } catch (error) {
+                console.error('Auth error:', error);
+                localStorage.clear();
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Load all students for dropdown
+        async function loadStudents() {
+            try {
+                const studentsQuery = query(
+                    collection(db, 'users'), 
+                    where('role', '==', 'student'),
+                    where('isActive', '==', true)
+                );
+                const snapshot = await getDocs(studentsQuery);
+                allStudents = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })).sort((a, b) => a.ucId.localeCompare(b.ucId));
+
+                const select = document.getElementById('studentSelect');
+                select.innerHTML = '<option value="">-- Select Student --</option>';
+                allStudents.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student.ucId;
+                    option.textContent = `${student.ucId} - ${student.firstName} ${student.lastName}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading students:', error);
+            }
+        }
+
+        // Load all attendance records
+        async function loadAllAttendance() {
+            try {
+                // Query without orderBy to avoid index issues
+                const attendanceQuery = query(
+                    collection(db, 'attendance'),
+                    limit(500)
+                );
+                const snapshot = await getDocs(attendanceQuery);
+                allAttendance = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Sort by scannedAt or createdAt in descending order (latest first)
+                allAttendance.sort((a, b) => {
+                    const timeA = new Date(a.scannedAt || a.createdAt || a.date).getTime();
+                    const timeB = new Date(b.scannedAt || b.createdAt || b.date).getTime();
+                    return timeB - timeA; // Latest first
+                });
+
+                updateStatistics();
+                displayAttendance(allAttendance);
+            } catch (error) {
+                console.error('Error loading attendance:', error);
+                document.getElementById('attendanceTableBody').innerHTML = `
+                    <tr><td colspan="8" style="text-align: center; color: #e74c3c;">Error loading attendance: ${error.message}</td></tr>
+                `;
+            }
+        }
+
+        // Update statistics
+        function updateStatistics() {
+            const today = new Date().toISOString().split('T')[0];
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            const todayRecords = allAttendance.filter(a => a.date === today);
+            const weekRecords = allAttendance.filter(a => a.date >= weekAgo);
+            const validToday = todayRecords.filter(a => a.status === 'valid').length;
+
+            document.getElementById('totalRecords').textContent = allAttendance.length;
+            document.getElementById('todayRecords').textContent = todayRecords.length;
+            document.getElementById('presentToday').textContent = validToday;
+            document.getElementById('weekRecords').textContent = weekRecords.length;
+        }
+
+        // Display attendance in table
+        function displayAttendance(records) {
+            const tbody = document.getElementById('attendanceTableBody');
+            
+            if (records.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="8" style="text-align: center; padding: 40px; color: #7f8c8d;">No attendance records found</td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = records.map(record => {
+                const student = allStudents.find(s => s.ucId === record.ucId) || {};
+                const statusEmoji = {
+                    'valid': '✅',
+                    'invalid': '❌'
+                };
+
+                const typeDisplay = record.type === 'IN' 
+                    ? '<span style="color: #3498db; font-weight: 600;">🔵 IN</span>' 
+                    : '<span style="color: #e74c3c; font-weight: 600;">🔴 OUT</span>';
+
+                const locationDisplay = record.location 
+                    ? `${record.location.lat.toFixed(6)}, ${record.location.lng.toFixed(6)}`
+                    : '-';
+
+                return `
+                    <tr>
+                        <td>${new Date(record.createdAt || record.date).toLocaleString()}</td>
+                        <td><strong>${record.ucId}</strong></td>
+                        <td>${record.fullName || `${student.firstName || ''} ${student.lastName || ''}`}</td>
+                        <td>${typeDisplay}</td>
+                        <td>
+                            <span class="status-badge status-${record.status}">
+                                ${statusEmoji[record.status] || ''} ${(record.status || '').toUpperCase()}
+                            </span>
+                        </td>
+                        <td>${record.scannedAt ? new Date(record.scannedAt).toLocaleTimeString() : '-'}</td>
+                        <td>${locationDisplay}</td>
+                        <td>
+                            <button class="btn-small btn-edit" onclick="editAttendance('${record.id}')">Edit</button>
+                            ${currentUser.role === 'admin' ? `<button class="btn-small btn-delete" onclick="deleteAttendance('${record.id}')">Delete</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Create attendance
+        document.getElementById('createAttendanceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const ucId = document.getElementById('studentSelect').value;
+            const date = document.getElementById('attendanceDate').value;
+            const type = document.getElementById('attendanceType').value;
+            const status = document.getElementById('attendanceStatus').value;
+            const locationLat = document.getElementById('locationLat').value;
+            const locationLng = document.getElementById('locationLng').value;
+            const locationAccuracy = document.getElementById('locationAccuracy').value;
+            const notes = document.getElementById('notes').value;
+
+            const formMessage = document.getElementById('formMessage');
+
+            try {
+                const student = allStudents.find(s => s.ucId === ucId);
+                const timestamp = Date.now();
+                const attendanceId = `user_${ucId}_${timestamp}_${date}_${type}`;
+                const userId = `user_${ucId}_${timestamp}`;
+                const now = new Date().toISOString();
+
+                const attendanceData = {
+                    ucId,
+                    userId,
+                    fullName: `${student.firstName} ${student.lastName}`,
+                    date,
+                    type,
+                    status,
+                    scannedAt: now,
+                    createdAt: now,
+                    updatedAt: now
+                };
+
+                // Add location if provided
+                if (locationLat && locationLng) {
+                    attendanceData.location = {
+                        lat: parseFloat(locationLat),
+                        lng: parseFloat(locationLng),
+                        accuracy: locationAccuracy ? parseFloat(locationAccuracy) : null
+                    };
+                }
+
+                await setDoc(doc(db, 'attendance', attendanceId), attendanceData);
+
+                formMessage.innerHTML = '<div class="success">✅ Attendance record created successfully!</div>';
+                
+                // Close modal after short delay
+                setTimeout(() => {
+                    document.getElementById('createAttendanceModal').style.display = 'none';
+                    document.getElementById('createAttendanceForm').reset();
+                    formMessage.textContent = '';
+                }, 1500);
+                
+                await loadAllAttendance();
+
+                setTimeout(() => {
+                    formMessage.innerHTML = '';
+                }, 3000);
+
+            } catch (error) {
+                console.error('Error creating attendance:', error);
+                formMessage.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        });
+
+        // Filter attendance
+        document.getElementById('filterBtn').addEventListener('click', () => {
+            const searchUcId = document.getElementById('searchUcId').value.toLowerCase();
+            const dateFilter = document.getElementById('dateFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            let filtered = allAttendance;
+
+            if (searchUcId) {
+                filtered = filtered.filter(a => 
+                    (a.ucId && a.ucId.toLowerCase().includes(searchUcId)) ||
+                    (a.fullName && a.fullName.toLowerCase().includes(searchUcId))
+                );
+            }
+
+            if (dateFilter) {
+                filtered = filtered.filter(a => a.date === dateFilter);
+            }
+
+            if (statusFilter) {
+                filtered = filtered.filter(a => a.status === statusFilter);
+            }
+
+            // Keep the latest-first order
+            filtered.sort((a, b) => {
+                const timeA = new Date(a.scannedAt || a.createdAt).getTime();
+                const timeB = new Date(b.scannedAt || b.createdAt).getTime();
+                return timeB - timeA;
+            });
+
+            displayAttendance(filtered);
+        });
+
+        // Clear filters
+        document.getElementById('clearFilterBtn').addEventListener('click', () => {
+            document.getElementById('searchUcId').value = '';
+            document.getElementById('dateFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            displayAttendance(allAttendance);
+        });
+
+        // Edit attendance
+        window.editAttendance = function(attendanceId) {
+            const record = allAttendance.find(a => a.id === attendanceId);
+            if (!record) return;
+
+            const student = allStudents.find(s => s.ucId === record.ucId) || {};
+            
+            document.getElementById('editAttendanceId').value = attendanceId;
+            document.getElementById('editStudentInfo').value = `${record.ucId} - ${record.fullName || `${student.firstName || ''} ${student.lastName || ''}`}`;
+            document.getElementById('editAttendanceDate').value = record.date;
+            document.getElementById('editAttendanceType').value = record.type || 'IN';
+            document.getElementById('editAttendanceStatus').value = record.status;
+            
+            if (record.location) {
+                document.getElementById('editLocationLat').value = record.location.lat || '';
+                document.getElementById('editLocationLng').value = record.location.lng || '';
+                document.getElementById('editLocationAccuracy').value = record.location.accuracy || '';
+            } else {
+                document.getElementById('editLocationLat').value = '';
+                document.getElementById('editLocationLng').value = '';
+                document.getElementById('editLocationAccuracy').value = '';
+            }
+
+            document.getElementById('editAttendanceModal').style.display = 'flex';
+        };
+
+        // Update attendance
+        document.getElementById('editAttendanceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const attendanceId = document.getElementById('editAttendanceId').value;
+            const date = document.getElementById('editAttendanceDate').value;
+            const type = document.getElementById('editAttendanceType').value;
+            const status = document.getElementById('editAttendanceStatus').value;
+            const locationLat = document.getElementById('editLocationLat').value;
+            const locationLng = document.getElementById('editLocationLng').value;
+            const locationAccuracy = document.getElementById('editLocationAccuracy').value;
+
+            try {
+                const updateData = {
+                    date,
+                    type,
+                    status,
+                    updatedAt: new Date().toISOString()
+                };
+
+                // Add location if provided
+                if (locationLat && locationLng) {
+                    updateData.location = {
+                        lat: parseFloat(locationLat),
+                        lng: parseFloat(locationLng),
+                        accuracy: locationAccuracy ? parseFloat(locationAccuracy) : null
+                    };
+                }
+
+                await updateDoc(doc(db, 'attendance', attendanceId), updateData);
+
+                document.getElementById('editAttendanceModal').style.display = 'none';
+                await loadAllAttendance();
+                alert('Attendance record updated successfully!');
+
+            } catch (error) {
+                console.error('Error updating attendance:', error);
+                alert('Error updating attendance: ' + error.message);
+            }
+        });
+
+        // Delete attendance (admin only)
+        window.deleteAttendance = async function(attendanceId) {
+            if (!confirm('Are you sure you want to delete this attendance record?')) return;
+
+            try {
+                const { deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                await deleteDoc(doc(db, 'attendance', attendanceId));
+                await loadAllAttendance();
+                alert('Attendance record deleted successfully!');
+            } catch (error) {
+                console.error('Error deleting attendance:', error);
+                alert('Error deleting attendance: ' + error.message);
+            }
+        };
+
+        // Tab switching (removed as we only have view tab now)
+
+        // Modal controls
+        const createModal = document.getElementById('createAttendanceModal');
+        const editModal = document.getElementById('editAttendanceModal');
+        
+        // Open create modal
+        document.getElementById('openCreateModalBtn').addEventListener('click', () => {
+            createModal.style.display = 'flex';
+            loadStudents(); // Load students when opening modal
+        });
+
+        // Close create modal
+        document.getElementById('closeCreateModal').addEventListener('click', () => {
+            createModal.style.display = 'none';
+            document.getElementById('createAttendanceForm').reset();
+            document.getElementById('formMessage').textContent = '';
+        });
+
+        // Close edit modal
+        document.querySelectorAll('.close, .close-modal').forEach(el => {
+            el.addEventListener('click', () => {
+                editModal.style.display = 'none';
+            });
+        });
+
+        // Close modals when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === createModal) {
+                createModal.style.display = 'none';
+                document.getElementById('createAttendanceForm').reset();
+                document.getElementById('formMessage').textContent = '';
+            }
+            if (e.target === editModal) {
+                editModal.style.display = 'none';
+            }
+        });
+
+        // Refresh button
+        document.getElementById('refreshAttendanceBtn').addEventListener('click', loadAllAttendance);
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        });
+
+        // Set default date to today
+        document.getElementById('attendanceDate').valueAsDate = new Date();
+
+        // Auto-suggest type based on last record
+        async function suggestAttendanceType() {
+            const ucId = document.getElementById('studentSelect').value;
+            const date = document.getElementById('attendanceDate').value;
+            const typeHint = document.getElementById('typeHint');
+            
+            if (!ucId || !date) {
+                typeHint.textContent = '';
+                return;
+            }
+
+            // Find last record for this student on this date
+            const studentRecords = allAttendance.filter(a => 
+                a.ucId === ucId && a.date === date
+            ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            if (studentRecords.length === 0) {
+                document.getElementById('attendanceType').value = 'IN';
+                typeHint.textContent = '💡 Suggested: IN (No records for this date)';
+            } else {
+                const lastRecord = studentRecords[0];
+                if (lastRecord.type === 'IN') {
+                    document.getElementById('attendanceType').value = 'OUT';
+                    typeHint.textContent = '💡 Suggested: OUT (Last record was IN)';
+                } else {
+                    document.getElementById('attendanceType').value = 'IN';
+                    typeHint.textContent = '💡 Suggested: IN (Last record was OUT)';
+                }
+            }
+        }
+
+        // Add event listeners for auto-suggestion
+        document.getElementById('studentSelect').addEventListener('change', suggestAttendanceType);
+        document.getElementById('attendanceDate').addEventListener('change', suggestAttendanceType);
+
+        // Initialize
+        checkAuth();
+    </script>
+</body>
+</html>

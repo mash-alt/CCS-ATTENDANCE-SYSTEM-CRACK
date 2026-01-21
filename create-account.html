@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Admin/Moderator Account</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0; 
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h1 {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .role-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .role-option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .role-option:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+
+        .role-option.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .role-option .emoji {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .role-option .role-name {
+            font-weight: 600;
+        }
+
+        .create-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .create-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .create-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Create Account</h1>
+        <p class="subtitle">Create Admin or Moderator Account</p>
+
+        <div class="note">
+            <strong>⚠️ Important:</strong> This tool creates privileged accounts. Use responsibly.
+        </div>
+
+        <form id="createAccountForm">
+            <div class="form-group">
+                <label>Select Role</label>
+                <div class="role-selector">
+                    <div class="role-option" data-role="moderator">
+                        <div class="emoji">🛡️</div>
+                        <div class="role-name">Moderator</div>
+                    </div>
+                    <div class="role-option selected" data-role="admin">
+                        <div class="emoji">👑</div>
+                        <div class="role-name">Admin</div>
+                    </div>
+                </div>
+                <input type="hidden" id="roleInput" value="admin">
+            </div>
+
+            <div class="form-group">
+                <label for="ucId">UC ID *</label>
+                <input type="text" id="ucId" placeholder="e.g., UC24219750" required>
+            </div>
+
+            <div class="form-group">
+                <label for="firstName">First Name *</label>
+                <input type="text" id="firstName" placeholder="Enter first name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="lastName">Last Name *</label>
+                <input type="text" id="lastName" placeholder="Enter last name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password *</label>
+                <input type="password" id="password" placeholder="Minimum 6 characters" required minlength="6">
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password *</label>
+                <input type="password" id="confirmPassword" placeholder="Re-enter password" required minlength="6">
+            </div>
+
+            <button type="submit" class="create-btn" id="submitBtn">Create Account</button>
+
+            <div id="message" class="message"></div>
+        </form>
+
+        <div class="back-link">
+            <a href="index.html">← Back to Data Viewer</a>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, doc, setDoc, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Import configuration
+        import { firebaseConfig, SECRET_KEY } from './config.js';
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Hash password using SHA-256 (matching your AuthService)
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password + SECRET_KEY);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hash))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+        // Generate user ID
+        function generateUserId(ucId) {
+            return `user_${ucId}_${Date.now()}`;
+        }
+
+        // Role selector
+        const roleOptions = document.querySelectorAll('.role-option');
+        const roleInput = document.getElementById('roleInput');
+
+        roleOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                roleOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                roleInput.value = option.dataset.role;
+            });
+        });
+
+        // Form submission
+        const form = document.getElementById('createAccountForm');
+        const messageEl = document.getElementById('message');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            messageEl.className = 'message';
+            messageEl.textContent = '';
+            
+            const ucId = document.getElementById('ucId').value.trim();
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const role = roleInput.value;
+
+            // Validation
+            if (!ucId || !firstName || !lastName || !password || !confirmPassword) {
+                messageEl.className = 'message error';
+                messageEl.textContent = 'Please fill in all fields';
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                messageEl.className = 'message error';
+                messageEl.textContent = 'Passwords do not match';
+                return;
+            }
+
+            if (password.length < 6) {
+                messageEl.className = 'message error';
+                messageEl.textContent = 'Password must be at least 6 characters';
+                return;
+            }
+
+            try {
+                submitBtn.disabled = true;
+                messageEl.className = 'message info';
+                messageEl.textContent = 'Creating account...';
+
+                // Sign in anonymously
+                await signInAnonymously(auth);
+
+                // Check if UC ID already exists
+                const ucIdQuery = query(collection(db, 'users'), where('ucId', '==', ucId));
+                const ucIdSnapshot = await getDocs(ucIdQuery);
+
+                if (!ucIdSnapshot.empty) {
+                    throw new Error('UC ID already exists');
+                }
+
+                // Create user data
+                const userId = generateUserId(ucId);
+                const passwordHash = await hashPassword(password);
+
+                const userData = {
+                    id: userId,
+                    ucId: ucId,
+                    firstName: firstName,
+                    lastName: lastName,
+                    imei: '',  // Admins and moderators don't need IMEI
+                    passwordHash: passwordHash,
+                    createdAt: new Date().toISOString(),
+                    isActive: true,
+                    role: role
+                };
+
+                // Save to Firestore
+                await setDoc(doc(db, 'users', userId), userData);
+
+                messageEl.className = 'message success';
+                messageEl.textContent = `✅ ${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully! UC ID: ${ucId}`;
+                
+                // Clear form
+                form.reset();
+                roleOptions.forEach(opt => opt.classList.remove('selected'));
+                roleOptions[1].classList.add('selected'); // Select admin by default
+                roleInput.value = 'admin';
+
+            } catch (error) {
+                console.error('Error creating account:', error);
+                messageEl.className = 'message error';
+                messageEl.textContent = '❌ Error: ' + error.message;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Initialize Firebase connection
+        (async () => {
+            try {
+                await signInAnonymously(auth);
+                console.log('Connected to Firebase');
+            } catch (error) {
+                console.error('Firebase connection error:', error);
+                messageEl.className = 'message error';
+                messageEl.textContent = 'Failed to connect to Firebase';
+            }
+        })();
+    </script>
+</body>
+</html>

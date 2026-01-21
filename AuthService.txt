@@ -1,0 +1,622 @@
+import {
+  doc,
+  setDoc,
+  query,
+  where,
+  collection,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  getDoc,
+} from "firebase/firestore";
+import { db } from "../firebase/firebaseConfig";
+import CryptoJS from "crypto-js";
+
+/* =======================
+   CONFIG
+======================= */
+
+const SECRET_KEY =
+  process.env.REACT_APP_SECRET_KEY ||
+  "attendance-system-uc-banilad-2024-secure";
+
+/* =======================
+   TYPES
+======================= */
+
+export interface User {
+  id: string;
+  ucId: string;
+  firstName: string;
+  lastName: string;
+  imei: string;
+  passwordHash: string;
+  createdAt: string;
+  isActive: boolean;
+  lastLogin?: string;
+  role?: "student" | "moderator" | "admin";
+  deactivatedAt?: string;
+  deactivatedBy?: string;
+}
+
+export interface LoginCredentials {
+  ucId: string;
+  password: string;
+}
+
+export interface RegisterData {
+  ucId: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+  confirmPassword: string;
+  imei: string;
+  role?: "student" | "moderator";
+}
+
+export interface CreateUserData {
+  ucId: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+  confirmPassword: string;
+  imei: string;
+  role: "student" | "moderator";
+}
+
+export interface PreRegistrationCheckResult {
+  studentIdAvailable: boolean;
+  studentIdMessage?: string;
+  deviceAvailable: boolean;
+  deviceMessage?: string;
+}
+
+export interface UserListResponse {
+  users: User[];
+  total: number;
+}
+
+export interface UserFilter {
+  ucId?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: User["role"];
+  isActive?: boolean;
+}
+
+export interface UserUpdateData {
+  ucId?: string;
+  imei?: string;
+  firstName?: string;
+  lastName?: string;
+  isActive?: boolean;
+  role?: User["role"];
+}
+
+/* =======================
+   AUTH SERVICE
+======================= */
+
+class AuthService {
+  private currentUser: User | null = null;
+  public readonly USERS_COLLECTION = "users";
+
+  /* =======================
+     HELPERS
+  ======================= */
+
+  private hashPassword(password: string): string {
+    return CryptoJS.SHA256(password + SECRET_KEY).toString();
+  }
+
+  private generateUserId(ucId: string): string {
+    return `user_${ucId}_${Date.now()}`;
+  }
+
+  private generateToken(ucId: string): string {
+    return CryptoJS.HmacSHA256(`${ucId}_${Date.now()}`, SECRET_KEY).toString();
+  }
+
+  /* =======================
+     🔍 PRE-REGISTRATION CHECK
+  ======================= */
+
+  async preRegistrationCheck(
+    ucId: string,
+    imei: string
+  ): Promise<PreRegistrationCheckResult> {
+    // ID Number check - only check active users
+    const ucIdSnap = await getDocs(
+      query(
+        collection(db, this.USERS_COLLECTION),
+        where("ucId", "==", ucId),
+        where("isActive", "==", true)
+      )
+    );
+
+    if (!ucIdSnap.empty) {
+      return {
+        studentIdAvailable: false,
+        studentIdMessage: "This Student ID is already registered.",
+        deviceAvailable: true,
+      };
+    }
+
+    // IMEI check (only for students) - only check active students
+    const imeiSnap = await getDocs(
+      query(
+        collection(db, this.USERS_COLLECTION),
+        where("imei", "==", imei),
+        where("role", "==", "student"),
+        where("isActive", "==", true)
+      )
+    );
+
+    if (!imeiSnap.empty) {
+      const existingUser = imeiSnap.docs[0].data() as User;
+      // Only block if existing user is an active student
+      if (existingUser.role === "student" && existingUser.isActive) {
+        return {
+          studentIdAvailable: true,
+          deviceAvailable: false,
+          deviceMessage:
+            "This device is already registered to another active student.",
+        };
+      }
+    }
+
+    return {
+      studentIdAvailable: true,
+      deviceAvailable: true,
+    };
+  }
+
+  /* =======================
+     REGISTER
+  ======================= */
+
+  async register(
+    data: RegisterData
+  ): Promise<{ success: boolean; message: string; user?: User }> {
+    try {
+      if (!data.role) {
+        data.role = "student";
+      }
+
+      // Moderators don't need IMEI
+      if (data.role === "student") {
+        if (data.password !== data.confirmPassword) {
+          return { success: false, message: "Passwords do not match" };
+        }
+
+        if (data.password.length < 6) {
+          return {
+            success: false,
+            message: "Password must be at least 6 characters",
+          };
+        }
+      }
+
+      const userId = this.generateUserId(data.ucId);
+
+      const userData: User = {
+        id: userId,
+        ucId: data.ucId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        imei: data.role === "student" ? data.imei : "",
+        passwordHash: this.hashPassword(data.password),
+        createdAt: new Date().toISOString(),
+        isActive: true,
+        role: data.role,
+      };
+
+      // Only set device ID for students
+      if (data.role === "student") {
+        localStorage.setItem("device_id", data.imei);
+      }
+
+      await setDoc(doc(db, this.USERS_COLLECTION, userId), userData);
+
+      localStorage.setItem("attendance_user", JSON.stringify(userData));
+      localStorage.setItem("attendance_token", this.generateToken(data.ucId));
+
+      this.currentUser = userData;
+
+      return {
+        success: true,
+        message: "Registration successful!",
+        user: userData,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Registration failed",
+      };
+    }
+  }
+
+  /* =======================
+     CREATE NEW USER (FOR ADMINS)
+  ======================= */
+
+  async createUser(
+    data: CreateUserData
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const currentUser = this.getCurrentUser();
+      if (!currentUser || currentUser.role !== "admin") {
+        throw new Error("Only admins can create new users");
+      }
+
+      // Check if ID Number already exists
+      const ucIdSnap = await getDocs(
+        query(
+          collection(db, this.USERS_COLLECTION),
+          where("ucId", "==", data.ucId)
+        )
+      );
+
+      if (!ucIdSnap.empty) {
+        throw new Error("ID Number already exists");
+      }
+
+      // For students, check IMEI if provided
+      if (data.role === "student" && data.imei) {
+        const imeiSnap = await getDocs(
+          query(
+            collection(db, this.USERS_COLLECTION),
+            where("imei", "==", data.imei),
+            where("role", "==", "student"),
+            where("isActive", "==", true)
+          )
+        );
+
+        if (!imeiSnap.empty) {
+          throw new Error(
+            "IMEI is already registered to another active student"
+          );
+        }
+      }
+
+      // Validate passwords
+      if (data.password !== data.confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
+
+      if (data.password.length < 6) {
+        throw new Error("Password must be at least 6 characters");
+      }
+
+      // For students, IMEI is required
+      if (data.role === "student" && !data.imei) {
+        throw new Error("IMEI is required for student accounts");
+      }
+
+      // Create user data
+      const userId = this.generateUserId(data.ucId);
+      const userData: User = {
+        id: userId,
+        ucId: data.ucId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        imei: data.role === "student" ? data.imei : "",
+        passwordHash: this.hashPassword(data.password),
+        createdAt: new Date().toISOString(),
+        isActive: true,
+        role: data.role,
+      };
+
+      await setDoc(doc(db, this.USERS_COLLECTION, userId), userData);
+
+      return {
+        success: true,
+        message: `${
+          data.role.charAt(0).toUpperCase() + data.role.slice(1)
+        } created successfully`,
+      };
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /* =======================
+     LOGIN
+  ======================= */
+
+  async login(
+    credentials: LoginCredentials
+  ): Promise<{ success: boolean; message: string; user?: User }> {
+    const { ucId, password } = credentials;
+
+    const snap = await getDocs(
+      query(collection(db, this.USERS_COLLECTION), where("ucId", "==", ucId))
+    );
+
+    if (snap.empty) {
+      return { success: false, message: "Invalid Student ID or password" };
+    }
+
+    const docSnap = snap.docs[0];
+    const user = { id: docSnap.id, ...docSnap.data() } as User;
+
+    if (!user.isActive) {
+      return { success: false, message: "Account is deactivated" };
+    }
+
+    if (user.passwordHash !== this.hashPassword(password)) {
+      return { success: false, message: "Invalid Student ID or password" };
+    }
+
+    // Only set device ID for students
+    if (user.role === "student") {
+      localStorage.setItem("device_id", user.imei);
+    }
+
+    localStorage.setItem("attendance_user", JSON.stringify(user));
+    localStorage.setItem("attendance_token", this.generateToken(ucId));
+
+    this.currentUser = user;
+
+    return { success: true, message: "Login successful!", user };
+  }
+
+  /* =======================
+     USER MANAGEMENT (FOR MODERATORS/ADMINS)
+  ======================= */
+
+  async getUsers(filter?: UserFilter): Promise<UserListResponse> {
+    try {
+      const currentUser = this.getCurrentUser();
+      if (
+        !currentUser ||
+        (currentUser.role !== "moderator" && currentUser.role !== "admin")
+      ) {
+        throw new Error("Unauthorized");
+      }
+
+      let q = query(collection(db, this.USERS_COLLECTION));
+
+      // Apply filters
+      const filters = [];
+
+      // Role-based filtering (Moderators can only see students)
+      if (currentUser.role === "moderator") {
+        filters.push(where("role", "==", "student"));
+      }
+
+      // Handle role filter from UI
+      if (filter?.role !== undefined) {
+        // Only allow filtering by student role for moderators
+        if (currentUser.role === "moderator" && filter.role !== "student") {
+          throw new Error("Moderators can only view student accounts");
+        }
+        filters.push(where("role", "==", filter.role));
+      }
+
+      // Handle isActive filter
+      if (filter?.isActive !== undefined) {
+        filters.push(where("isActive", "==", filter.isActive));
+      }
+
+      // For text search, we need to handle it differently
+      // Firestore doesn't support "contains" queries directly
+      // We'll fetch all data and filter client-side for text searches
+
+      // Apply role and status filters to reduce data
+      if (filters.length > 0) {
+        q = query(collection(db, this.USERS_COLLECTION), ...filters);
+      } else {
+        // Default filter for moderators
+        if (currentUser.role === "moderator") {
+          q = query(
+            collection(db, this.USERS_COLLECTION),
+            where("role", "==", "student")
+          );
+        }
+      }
+
+      const snapshot = await getDocs(q);
+      let users = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as User)
+      );
+
+      // Apply client-side text filtering
+      if (filter?.ucId || filter?.firstName || filter?.lastName) {
+        users = users.filter((user) => {
+          const matchesUcId = filter.ucId
+            ? user.ucId.toLowerCase().includes(filter.ucId.toLowerCase())
+            : true;
+
+          const matchesFirstName = filter.firstName
+            ? user.firstName
+                .toLowerCase()
+                .includes(filter.firstName.toLowerCase())
+            : true;
+
+          const matchesLastName = filter.lastName
+            ? user.lastName
+                .toLowerCase()
+                .includes(filter.lastName.toLowerCase())
+            : true;
+
+          return matchesUcId && matchesFirstName && matchesLastName;
+        });
+      }
+
+      return {
+        users: users.sort((a, b) => a.ucId.localeCompare(b.ucId)),
+        total: users.length,
+      };
+    } catch (error: any) {
+      console.error("Error fetching users:", error);
+      return { users: [], total: 0 };
+    }
+  }
+
+  async updateUser(
+    userId: string,
+    data: UserUpdateData
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const currentUser = this.getCurrentUser();
+      if (!currentUser) {
+        throw new Error("Unauthorized");
+      }
+
+      const userRef = doc(db, this.USERS_COLLECTION, userId);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error("User not found");
+      }
+
+      const userData = userSnap.data() as User;
+
+      // Permission checks
+      if (currentUser.role === "moderator") {
+        // Moderators can only edit student accounts
+        if (userData.role !== "student") {
+          throw new Error("Moderators can only edit student accounts");
+        }
+
+        // Moderators can only deactivate (set isActive to false)
+        // They cannot reactivate or edit other fields
+        if (data.isActive === true) {
+          throw new Error("Moderators cannot reactivate accounts");
+        }
+
+        if (data.isActive === false) {
+          // Only allow deactivation
+          await updateDoc(userRef, {
+            isActive: false,
+            deactivatedAt: new Date().toISOString(),
+            deactivatedBy: currentUser.id,
+            updatedAt: new Date().toISOString(),
+          });
+
+          return { success: true, message: "User deactivated successfully" };
+        }
+
+        // For other fields, maintain existing restrictions
+        const allowedFields = ["ucId", "imei"];
+        const unauthorizedFields = Object.keys(data).filter(
+          (key) => !allowedFields.includes(key) && key !== "isActive"
+        );
+
+        if (unauthorizedFields.length > 0) {
+          throw new Error(
+            `Moderators cannot edit: ${unauthorizedFields.join(", ")}`
+          );
+        }
+      }
+
+      // Admins can edit everything except other admins
+      if (currentUser.role === "admin") {
+        if (userData.role === "admin" && currentUser.id !== userData.id) {
+          throw new Error("Cannot edit another admin account");
+        }
+
+        // Handle deactivation (no reactivation allowed)
+        if (data.isActive === false) {
+          await updateDoc(userRef, {
+            isActive: false,
+            deactivatedAt: new Date().toISOString(),
+            deactivatedBy: currentUser.id,
+            updatedAt: new Date().toISOString(),
+          });
+
+          return { success: true, message: "User deactivated successfully" };
+        }
+
+        // Block reactivation attempts
+        if (data.isActive === true && userData.isActive === false) {
+          throw new Error(
+            "Reactivation is not allowed. Once deactivated, accounts cannot be reactivated."
+          );
+        }
+      }
+
+      // For other updates (not deactivation)
+      await updateDoc(userRef, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      });
+
+      return { success: true, message: "User updated successfully" };
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /* =======================
+     AUTH STATE
+  ======================= */
+
+  getCurrentUser(): User | null {
+    if (this.currentUser) return this.currentUser;
+
+    try {
+      const userStr = localStorage.getItem("attendance_user");
+      const token = localStorage.getItem("attendance_token");
+
+      if (!userStr || !token) return null;
+
+      const user = JSON.parse(userStr) as User;
+
+      if (!this.validateToken(token, user.ucId)) {
+        this.logout();
+        return null;
+      }
+
+      this.currentUser = user;
+      return user;
+    } catch {
+      return null;
+    }
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.getCurrentUser();
+  }
+
+  hasRole(role: User["role"] | User["role"][]): boolean {
+    const user = this.getCurrentUser();
+    if (!user) return false;
+
+    if (Array.isArray(role)) {
+      return role.includes(user.role || "student");
+    }
+    return user.role === role;
+  }
+
+  validateToken(token: string, ucId: string): boolean {
+    const storedToken = localStorage.getItem("attendance_token");
+    return token === storedToken;
+  }
+
+  logout(): void {
+    this.currentUser = null;
+    localStorage.removeItem("attendance_user");
+    localStorage.removeItem("attendance_token");
+    localStorage.removeItem("device_id");
+  }
+
+  /* =======================
+     DEVICE ID
+  ======================= */
+
+  getDeviceId(): string {
+    const deviceString = `${navigator.userAgent}_${
+      navigator.platform
+    }_${navigator.languages.join(",")}_${window.screen.width}x${
+      window.screen.height
+    }`;
+
+    return CryptoJS.SHA256(deviceString).toString().substring(0, 15);
+  }
+}
+
+export const authService = new AuthService();
