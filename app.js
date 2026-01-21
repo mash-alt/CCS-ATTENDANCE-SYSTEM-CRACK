@@ -4,7 +4,7 @@ import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/1
 import { getFirestore, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 // Import configuration
-import { firebaseConfig, SECRET_KEY } from './config.js';
+import { firebaseConfig, SECRET_KEY, ADMIN_CREDENTIALS } from './config.js';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -68,6 +68,31 @@ function saveSession(user) {
     localStorage.setItem('attendance_token', token);
 }
 
+// Auto-login with admin credentials
+async function autoLoginAsAdmin() {
+    try {
+        await signInAnonymously(auth);
+        const userQuery = query(collection(db, 'users'), where('ucId', '==', ADMIN_CREDENTIALS.ucId));
+        const snapshot = await getDocs(userQuery);
+        
+        if (!snapshot.empty) {
+            const userData = snapshot.docs[0].data();
+            if (userData.isActive) {
+                const passwordHash = await hashPassword(ADMIN_CREDENTIALS.password);
+                if (userData.passwordHash === passwordHash) {
+                    currentUser = { id: snapshot.docs[0].id, ...userData };
+                    saveSession(currentUser);
+                    showMainInterface();
+                    return true;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Auto-login error:', error);
+    }
+    return false;
+}
+
 // Check for existing session on page load
 async function checkExistingSession() {
     const userStr = localStorage.getItem('attendance_user');
@@ -98,7 +123,9 @@ async function checkExistingSession() {
             localStorage.clear();
         }
     }
-    return false;
+    
+    // No valid session, auto-login as admin
+    return await autoLoginAsAdmin();
 }
 
 // Login functionality
@@ -156,15 +183,26 @@ loginForm.addEventListener('submit', async (e) => {
     }
 });
 
+// Switch user functionality
+const switchUserBtn = document.getElementById('switchUserBtn');
+if (switchUserBtn) {
+    switchUserBtn.addEventListener('click', () => {
+        currentUser = null;
+        localStorage.clear();
+        loginContainer.style.display = 'flex';
+        mainContainer.style.display = 'none';
+        ucIdInput.value = '';
+        passwordInput.value = '';
+        loginError.textContent = '';
+    });
+}
+
 // Logout functionality
-logoutBtn.addEventListener('click', () => {
+logoutBtn.addEventListener('click', async () => {
     currentUser = null;
     localStorage.clear();
-    loginContainer.style.display = 'flex';
-    mainContainer.style.display = 'none';
-    ucIdInput.value = '';
-    passwordInput.value = '';
-    loginError.textContent = '';
+    // Auto-login as admin again
+    await autoLoginAsAdmin();
 });
 
 // Show main interface after login

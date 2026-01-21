@@ -8,7 +8,7 @@
 </head>
 <body>
     <!-- Login Container -->
-    <div id="loginContainer" class="login-container">
+    <div id="loginContainer" class="login-container" style="display: none;">
         <div class="login-box">
             <h1>🔥 Firebase Data Viewer</h1>
             <p class="subtitle">Attendance System Database</p>
@@ -31,8 +31,8 @@
         </div>
     </div>
 
-    <!-- Main Container (Hidden until login) -->
-    <div id="mainContainer" class="container" style="display: none;">
+    <!-- Main Container -->
+    <div id="mainContainer" class="container">
         <header>
             <div class="header-content">
                 <div>
@@ -41,6 +41,7 @@
                 </div>
                 <div class="user-info-container">
                     <div id="userInfo" class="user-info"></div>
+                    <button id="switchUserBtn" class="logout-btn" style="margin-right: 10px; background: #6c757d;">Switch User</button>
                     <button id="logoutBtn" class="logout-btn">Logout</button>
                 </div>
             </div>

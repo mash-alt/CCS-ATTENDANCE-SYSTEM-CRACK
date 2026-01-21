@@ -12,6 +12,7 @@ export const firebaseConfig = {
   measurementId: "G-J892KKNDQT",
 };
 
+
 // Application secret key for password hashing
 export const SECRET_KEY = "attendance-system-uc-banilad-2024-secure";
 
