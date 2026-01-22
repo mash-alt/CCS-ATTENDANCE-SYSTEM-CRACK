@@ -16,8 +16,8 @@ export const firebaseConfig = {
 // Application secret key for password hashing
 export const SECRET_KEY = "attendance-system-uc-banilad-2024-secure";
 
-// Admin auto-login credentials (for admin-panel.html)
-export const ADMIN_CREDENTIALS = {
-  ucId: "admin",
-  password: "123456"
-};
+// Admin auto-login credentials (DISABLED)
+// export const ADMIN_CREDENTIALS = {
+//   ucId: "admin",
+//   password: "123456"
+// };

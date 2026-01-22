@@ -586,7 +586,7 @@
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         // Import configuration
-        import { firebaseConfig, SECRET_KEY, ADMIN_CREDENTIALS } from './config.js';
+        import { firebaseConfig, SECRET_KEY } from './config.js';
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -606,55 +606,7 @@
                 .join('');
         }
 
-        // Auto-login as admin
-        async function autoLogin() {
-            try {
-                await signInAnonymously(auth);
-                
-                const adminQuery = query(collection(db, 'users'), where('ucId', '==', ADMIN_CREDENTIALS.ucId));
-                const snapshot = await getDocs(adminQuery);
-                
-                if (snapshot.empty) {
-                    throw new Error(`Admin account ${ADMIN_CREDENTIALS.ucId} not found`);
-                }
 
-                const adminDoc = snapshot.docs[0];
-                const adminData = { id: adminDoc.id, ...adminDoc.data() };
-                
-                const passwordHash = await hashPassword(ADMIN_CREDENTIALS.password);
-                if (adminData.passwordHash !== passwordHash) {
-                    throw new Error('Invalid admin credentials');
-                }
-
-                if (!adminData.isActive) {
-                    throw new Error('Admin account is deactivated');
-                }
-
-                currentAdmin = adminData;
-                
-                document.getElementById('loadingScreen').classList.add('hidden');
-                document.getElementById('adminContainer').classList.add('visible');
-                
-                document.getElementById('userBadge').innerHTML = `
-                    <span>👑 ${adminData.firstName} ${adminData.lastName}</span>
-                    <span class="role-badge admin">ADMIN</span>
-                `;
-
-                await loadAllUsers();
-
-            } catch (error) {
-                document.getElementById('loadingScreen').innerHTML = `
-                    <div>
-                        <div style="font-size: 3em; margin-bottom: 20px;">❌</div>
-                        <div>${error.message}</div>
-                        <div style="margin-top: 20px; font-size: 0.9em;">
-                            Please ensure ${ADMIN_CREDENTIALS.ucId} account exists with password: ${ADMIN_CREDENTIALS.password}
-                        </div>
-                    </div>
-                `;
-                console.error('Auto-login failed:', error);
-            }
-        }
 
         // Load all users
         async function loadAllUsers() {
@@ -962,8 +914,19 @@
             }
         };
 
-        // Initialize
-        autoLogin();
+        // Initialize - manual login required, auto-login removed
+        document.getElementById('loadingScreen').innerHTML = `
+            <div>
+                <div style="font-size: 3em; margin-bottom: 20px;">🔐</div>
+                <div>Admin Panel</div>
+                <div style="margin-top: 20px; font-size: 0.9em;">
+                    Please login through the main page first
+                </div>
+                <div style="margin-top: 20px;">
+                    <a href="index.html" style="color: #007bff; text-decoration: none;">← Go to Login Page</a>
+                </div>
+            </div>
+        `;
     </script>
 </body>
 </html>
