@@ -672,6 +672,11 @@
         // Set default date to today
         document.getElementById('attendanceDate').valueAsDate = new Date();
 
+        // Set default location values (UC Banilad Campus)
+        document.getElementById('locationLat').value = '10.3386';
+        document.getElementById('locationLng').value = '123.9118';
+        document.getElementById('locationAccuracy').value = '150';
+
         // Auto-suggest type based on last record
         async function suggestAttendanceType() {
             const ucId = document.getElementById('studentSelect').value;

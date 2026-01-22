@@ -914,19 +914,88 @@
             }
         };
 
-        // Initialize - manual login required, auto-login removed
-        document.getElementById('loadingScreen').innerHTML = `
-            <div>
-                <div style="font-size: 3em; margin-bottom: 20px;">🔐</div>
-                <div>Admin Panel</div>
-                <div style="margin-top: 20px; font-size: 0.9em;">
-                    Please login through the main page first
-                </div>
-                <div style="margin-top: 20px;">
-                    <a href="index.html" style="color: #007bff; text-decoration: none;">← Go to Login Page</a>
-                </div>
-            </div>
-        `;
+        // Check authentication
+        async function checkAuth() {
+            const userStr = localStorage.getItem('attendance_user');
+            const token = localStorage.getItem('attendance_token');
+
+            if (!userStr || !token) {
+                document.getElementById('loadingScreen').innerHTML = `
+                    <div>
+                        <div style="font-size: 3em; margin-bottom: 20px;">🔐</div>
+                        <div>Admin Panel</div>
+                        <div style="margin-top: 20px; font-size: 0.9em;">
+                            Please login through the main page first
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <a href="index.html" style="color: #007bff; text-decoration: none;">← Go to Login Page</a>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                currentAdmin = JSON.parse(userStr);
+                
+                // Verify user still exists and is active
+                await signInAnonymously(auth);
+                const userQuery = query(collection(db, 'users'), where('ucId', '==', currentAdmin.ucId));
+                const snapshot = await getDocs(userQuery);
+                
+                if (snapshot.empty) {
+                    localStorage.clear();
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                const userData = snapshot.docs[0].data();
+                if (!userData.isActive) {
+                    alert('Your account has been deactivated.');
+                    localStorage.clear();
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                // Check if user is admin
+                if (userData.role !== 'admin') {
+                    alert('You do not have permission to access this page. Admin access required.');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                // Update currentAdmin with fresh data
+                currentAdmin = { id: snapshot.docs[0].id, ...userData };
+
+                document.getElementById('loadingScreen').classList.add('hidden');
+                document.getElementById('adminContainer').classList.add('visible');
+                
+                document.getElementById('userBadge').innerHTML = `
+                    <span>👑 ${userData.firstName} ${userData.lastName}</span>
+                    <span class="role-badge admin">ADMIN</span>
+                `;
+
+                await loadAllUsers();
+
+            } catch (error) {
+                console.error('Auth error:', error);
+                document.getElementById('loadingScreen').innerHTML = `
+                    <div>
+                        <div style="font-size: 3em; margin-bottom: 20px;">❌</div>
+                        <div>Authentication Error</div>
+                        <div style="margin-top: 20px; font-size: 0.9em;">
+                            ${error.message}
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <a href="index.html" style="color: #007bff; text-decoration: none;">← Go to Login Page</a>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize
+        checkAuth();
     </script>
 </body>
 </html>
