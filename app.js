@@ -174,11 +174,10 @@ if (switchUserBtn) {
 }
 
 // Logout functionality
-logoutBtn.addEventListener('click', async () => {
+logoutBtn.addEventListener('click', () => {
     currentUser = null;
     localStorage.clear();
-    // Auto-login as admin again
-    await autoLoginAsAdmin();
+    location.reload(); // Reload page to show login screen
 });
 
 // Show main interface after login
