@@ -107,12 +107,17 @@
             <div class="modal-body">
                 <form id="createAttendanceForm">
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label for="studentSelect">Student *</label>
-                            <input type="text" id="studentSearch" placeholder="🔍 Search by UC ID or Name..." style="margin-bottom: 8px; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; width: 100%;">
-                            <select id="studentSelect" required size="5" style="width: 100%; padding: 8px;">
-                                <option value="">-- Select Student --</option>
-                            </select>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label for="studentSearch">Search & Select Student *</label>
+                            <input 
+                                type="text" 
+                                id="studentSearch" 
+                                placeholder="🔍 Type UC ID or Name to search..." 
+                                autocomplete="off"
+                                style="padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; width: 100%; box-sizing: border-box;">
+                            <input type="hidden" id="selectedStudentUcId" required>
+                            <div id="studentResults" style="display: none; max-height: 200px; overflow-y: auto; border: 2px solid #007bff; border-top: none; border-radius: 0 0 8px 8px; background: white; position: relative; z-index: 1000;"></div>
+                            <small style="color: #666; display: block; margin-top: 5px;">Start typing to search and select a student</small>
                         </div>
 
                         <div class="form-group">
@@ -327,52 +332,77 @@
                     ...doc.data()
                 })).sort((a, b) => a.ucId.localeCompare(b.ucId));
 
-                renderStudentOptions(allStudents);
                 setupStudentSearch();
             } catch (error) {
                 console.error('Error loading students:', error);
             }
         }
 
-        // Render student options in select
-        function renderStudentOptions(students) {
-            const select = document.getElementById('studentSelect');
-            select.innerHTML = '<option value="">-- Select Student --</option>';
-            students.forEach(student => {
-                const option = document.createElement('option');
-                option.value = student.ucId;
-                option.textContent = `${student.ucId} - ${student.firstName} ${student.lastName}`;
-                select.appendChild(option);
-            });
-        }
-
-        // Setup student search functionality
+        // Setup student search functionality with autocomplete
         function setupStudentSearch() {
             const searchInput = document.getElementById('studentSearch');
-            const select = document.getElementById('studentSelect');
+            const resultsDiv = document.getElementById('studentResults');
+            const hiddenInput = document.getElementById('selectedStudentUcId');
+            let selectedStudent = null;
             
             searchInput.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.toLowerCase().trim();
+                const searchTerm = e.target.value.trim();
                 
-                if (!searchTerm) {
-                    renderStudentOptions(allStudents);
+                // Clear selection when user types
+                hiddenInput.value = '';
+                selectedStudent = null;
+                
+                if (!searchTerm || searchTerm.length < 2) {
+                    resultsDiv.style.display = 'none';
+                    resultsDiv.innerHTML = '';
                     return;
                 }
                 
                 const filtered = allStudents.filter(student => {
                     const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
                     const ucId = student.ucId.toLowerCase();
-                    return ucId.includes(searchTerm) || fullName.includes(searchTerm);
+                    const search = searchTerm.toLowerCase();
+                    return ucId.includes(search) || fullName.includes(search);
                 });
                 
-                renderStudentOptions(filtered);
+                if (filtered.length === 0) {
+                    resultsDiv.innerHTML = '<div style="padding: 12px; color: #999; text-align: center;">No students found</div>';
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
+                
+                resultsDiv.innerHTML = filtered.map(student => `
+                    <div class="student-result-item" 
+                         data-ucid="${student.ucId}"
+                         style="padding: 12px 15px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;"
+                         onmouseover="this.style.background='#f8f9fa'" 
+                         onmouseout="this.style.background='white'">
+                        <strong>${student.ucId}</strong> - ${student.firstName} ${student.lastName}
+                    </div>
+                `).join('');
+                
+                resultsDiv.style.display = 'block';
+                
+                // Add click handlers to results
+                resultsDiv.querySelectorAll('.student-result-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const ucId = item.dataset.ucid;
+                        selectedStudent = allStudents.find(s => s.ucId === ucId);
+                        
+                        if (selectedStudent) {
+                            searchInput.value = `${selectedStudent.ucId} - ${selectedStudent.firstName} ${selectedStudent.lastName}`;
+                            hiddenInput.value = selectedStudent.ucId;
+                            resultsDiv.style.display = 'none';
+                            resultsDiv.innerHTML = '';
+                        }
+                    });
+                });
             });
             
-            // Clear search when selecting a student
-            select.addEventListener('change', () => {
-                if (select.value) {
-                    searchInput.value = '';
-                    renderStudentOptions(allStudents);
+            // Close results when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+                    resultsDiv.style.display = 'none';
                 }
             });
         }
@@ -475,7 +505,7 @@
         document.getElementById('createAttendanceForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const ucId = document.getElementById('studentSelect').value;
+            const ucId = document.getElementById('selectedStudentUcId').value;
             const date = document.getElementById('attendanceDate').value;
             const type = document.getElementById('attendanceType').value;
             const status = document.getElementById('attendanceStatus').value;
@@ -676,6 +706,9 @@
         document.getElementById('closeCreateModal').addEventListener('click', () => {
             createModal.style.display = 'none';
             document.getElementById('createAttendanceForm').reset();
+            document.getElementById('studentSearch').value = '';
+            document.getElementById('selectedStudentUcId').value = '';
+            document.getElementById('studentResults').style.display = 'none';
             document.getElementById('formMessage').textContent = '';
         });
 
@@ -691,6 +724,9 @@
             if (e.target === createModal) {
                 createModal.style.display = 'none';
                 document.getElementById('createAttendanceForm').reset();
+                document.getElementById('studentSearch').value = '';
+                document.getElementById('selectedStudentUcId').value = '';
+                document.getElementById('studentResults').style.display = 'none';
                 document.getElementById('formMessage').textContent = '';
             }
             if (e.target === editModal) {
@@ -717,7 +753,7 @@
 
         // Auto-suggest type based on last record
         async function suggestAttendanceType() {
-            const ucId = document.getElementById('studentSelect').value;
+            const ucId = document.getElementById('selectedStudentUcId').value;
             const date = document.getElementById('attendanceDate').value;
             const typeHint = document.getElementById('typeHint');
             
@@ -747,8 +783,20 @@
         }
 
         // Add event listeners for auto-suggestion
-        document.getElementById('studentSelect').addEventListener('change', suggestAttendanceType);
         document.getElementById('attendanceDate').addEventListener('change', suggestAttendanceType);
+        
+        // Trigger suggestion when student is selected via the search
+        const originalSetup = setupStudentSearch;
+        setupStudentSearch = function() {
+            originalSetup();
+            const hiddenInput = document.getElementById('selectedStudentUcId');
+            const observer = new MutationObserver(() => {
+                if (hiddenInput.value) {
+                    suggestAttendanceType();
+                }
+            });
+            observer.observe(hiddenInput, { attributes: true, attributeFilter: ['value'] });
+        };
 
         // Initialize
         checkAuth();
