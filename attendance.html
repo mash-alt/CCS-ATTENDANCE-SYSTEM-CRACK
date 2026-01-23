@@ -109,7 +109,8 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="studentSelect">Student *</label>
-                            <select id="studentSelect" required>
+                            <input type="text" id="studentSearch" placeholder="🔍 Search by UC ID or Name..." style="margin-bottom: 8px; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; width: 100%;">
+                            <select id="studentSelect" required size="5" style="width: 100%; padding: 8px;">
                                 <option value="">-- Select Student --</option>
                             </select>
                         </div>
@@ -326,17 +327,54 @@
                     ...doc.data()
                 })).sort((a, b) => a.ucId.localeCompare(b.ucId));
 
-                const select = document.getElementById('studentSelect');
-                select.innerHTML = '<option value="">-- Select Student --</option>';
-                allStudents.forEach(student => {
-                    const option = document.createElement('option');
-                    option.value = student.ucId;
-                    option.textContent = `${student.ucId} - ${student.firstName} ${student.lastName}`;
-                    select.appendChild(option);
-                });
+                renderStudentOptions(allStudents);
+                setupStudentSearch();
             } catch (error) {
                 console.error('Error loading students:', error);
             }
+        }
+
+        // Render student options in select
+        function renderStudentOptions(students) {
+            const select = document.getElementById('studentSelect');
+            select.innerHTML = '<option value="">-- Select Student --</option>';
+            students.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.ucId;
+                option.textContent = `${student.ucId} - ${student.firstName} ${student.lastName}`;
+                select.appendChild(option);
+            });
+        }
+
+        // Setup student search functionality
+        function setupStudentSearch() {
+            const searchInput = document.getElementById('studentSearch');
+            const select = document.getElementById('studentSelect');
+            
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                
+                if (!searchTerm) {
+                    renderStudentOptions(allStudents);
+                    return;
+                }
+                
+                const filtered = allStudents.filter(student => {
+                    const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
+                    const ucId = student.ucId.toLowerCase();
+                    return ucId.includes(searchTerm) || fullName.includes(searchTerm);
+                });
+                
+                renderStudentOptions(filtered);
+            });
+            
+            // Clear search when selecting a student
+            select.addEventListener('change', () => {
+                if (select.value) {
+                    searchInput.value = '';
+                    renderStudentOptions(allStudents);
+                }
+            });
         }
 
         // Load all attendance records
